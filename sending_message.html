@@ -9,7 +9,58 @@
         integrity="sha256-kmHvs0B+OpCW5GVHUNjv9rOmY0IvSIRcf7zGUDTDQM8=" crossorigin="anonymous">
         </script>
 
-    <script src="js/send_message.js"></script>
+    <script>
+        async function encryptString(text, key) {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(text);
+
+            // Generate a key from the password
+            const keyMaterial = await window.crypto.subtle.importKey(
+                "raw",
+                encoder.encode(key),
+                "PBKDF2",
+                false,
+                ["deriveBits", "deriveKey"]
+            );
+
+            // Generate a random salt
+            const salt = window.crypto.getRandomValues(new Uint8Array(16));
+
+            // Derive the key using PBKDF2
+            const cryptoKey = await window.crypto.subtle.deriveKey(
+                {
+                    name: "PBKDF2",
+                    salt: salt,
+                    iterations: 100000,
+                    hash: "SHA-256"
+                },
+                keyMaterial,
+                { name: "AES-CBC", length: 256 },
+                false,
+                ["encrypt"]
+            );
+
+            // Generate IV
+            const iv = window.crypto.getRandomValues(new Uint8Array(16));
+
+            // Encrypt the data
+            const encrypted = await window.crypto.subtle.encrypt(
+                { name: "AES-CBC", iv: iv },
+                cryptoKey,
+                data
+            );
+
+            // Combine salt, IV, and encrypted data
+            const encryptedArray = new Uint8Array(encrypted);
+            const result = {
+                salt: Array.from(salt).map(b => b.toString(16).padStart(2, '0')).join(''),
+                iv: Array.from(iv).map(b => b.toString(16).padStart(2, '0')).join(''),
+                data: Array.from(new Uint8Array(encrypted)).map(b => b.toString(16).padStart(2, '0')).join('')
+            };
+
+            return `${result.salt}:${result.iv}:${result.data}`;
+        }
+    </script>
     <title>Quick Secret Chat</title>
 </head>
 
